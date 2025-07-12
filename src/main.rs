@@ -9,12 +9,14 @@ mod piop;
 mod protocol;
 mod evaluation;
 mod comprehensive_tests;
+mod custom_circuits;
 
 use mpc::*;
 use evaluation::*;
 use comprehensive_tests::run_comprehensive_tests;
 use piop::ConsistencyChecker;
 use circuit::KZGCommitmentScheme;
+use custom_circuits::{CustomCircuit, CircuitTemplates, CircuitTester};
 use ark_bls12_381::{Fr, G1Projective};
 use ark_std::rand::{rngs::StdRng, SeedableRng};
 use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
@@ -48,6 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // 6. 测试 KZG 多项式承诺方案
     test_kzg_polynomial_commitment(&mut rng)?;
+    
+    // 7. 自定义电路和见证测试
+    test_custom_circuit_and_witness()?;
 
     println!("\n✅ 系统测试完成，所有组件正常工作！");
     
@@ -262,6 +267,108 @@ fn test_kzg_polynomial_commitment(rng: &mut StdRng) -> Result<(), Box<dyn std::e
     let batch_commitments: Vec<_> = polynomials.iter().map(|p| kzg.commit(p)).collect();
     let batch_verification = kzg.batch_verify(&batch_commitments, &batch_proof);
     println!("      🔄 批量验证结果: {}", batch_verification);
+    
+    Ok(())
+}
+
+fn test_custom_circuit_and_witness() -> Result<(), Box<dyn std::error::Error>> {
+    println!("\n🔧 自定义电路和见证测试");
+    println!("========================================");
+    
+    // 1. 基础自定义电路示例：验证 x² + y² = z
+    println!("\n� 示例 1: 自定义约束验证 (x² + y² = z)");
+    let mut custom_circuit = CustomCircuit::<F>::new("pythagorean_verification".to_string());
+    
+    // 定义私有见证
+    let x = F::from(100u64);
+    let y = F::from(200u64);
+    let z = F::from(50001u64); // 错误值：100² + 200² = 10000 + 40000 = 50000 ≠ 50001
+
+    // 添加见证和输入
+    let x_idx = custom_circuit.add_private_witness(x);              // 索引 0
+    let y_idx = custom_circuit.add_private_witness(y);              // 索引 1 
+    let x_squared_idx = custom_circuit.add_private_witness(x * x);  // 索引 2: 10000
+    let y_squared_idx = custom_circuit.add_private_witness(y * y);  // 索引 3: 40000
+    let z_idx = custom_circuit.add_public_input(z);                 // 索引 4: z在 all_variables 中
+    
+    // 添加约束
+    custom_circuit.add_multiplication_constraint(x_idx, x_idx, x_squared_idx);     // x × x = x²
+    custom_circuit.add_multiplication_constraint(y_idx, y_idx, y_squared_idx);     // y × y = y²
+    custom_circuit.add_addition_constraint(x_squared_idx, y_squared_idx, z_idx);   // x² + y² = z
+    
+    // 现在验证约束：x × x = x², y × y = y², x² + y² = z
+    println!("   📝 电路约束:");
+    println!("      x = {}, y = {}, z = {}", x, y, z);
+    println!("      x² = {}, y² = {}", x * x, y * y);
+    println!("      x² + y² = {} (期望 z = {})", x * x + y * y, z);
+    
+    let is_valid = CircuitTester::test_circuit(&custom_circuit);
+    println!("   🔍 验证结果: {}", if is_valid { "✅ 通过" } else { "❌ 失败" });
+    
+    // 2. 使用电路模板：平方根验证
+    println!("\n📋 示例 2: 平方根验证电路模板");
+    let sqrt_x = F::from(7u64);
+    let sqrt_result = F::from(49u64);
+    let sqrt_circuit = CircuitTemplates::square_root_verification(sqrt_x, sqrt_result);
+    
+    let sqrt_valid = CircuitTester::test_circuit(&sqrt_circuit);
+    println!("   🔍 平方根验证结果: {}", if sqrt_valid { "✅ 通过" } else { "❌ 失败" });
+    
+    // 3. KZG 承诺保护私有见证
+    println!("\n📋 示例 3: 使用 KZG 承诺保护私有见证");
+    let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(12345);
+    let degree = 10;
+    
+    // 设置 KZG
+    let kzg_scheme = KZGCommitmentScheme::<F, G1Projective>::setup(degree, &mut rng);
+    
+    // 创建见证多项式
+    let witness_coeffs: Vec<F> = vec![
+        F::from(3u64),  // 私有见证 x
+        F::from(4u64),  // 私有见证 y
+        F::from(25u64), // 计算结果 z
+    ];
+    let witness_poly = DensePolynomial::from_coefficients_vec(witness_coeffs);
+    
+    // 承诺见证
+    let commitment = kzg_scheme.commit(&witness_poly);
+    println!("   � 见证承诺生成完成");
+    
+    // 生成随机挑战点进行开启
+    let challenge_point = F::from(123u64);
+    let proof = kzg_scheme.open(&witness_poly, challenge_point);
+    
+    // 验证承诺
+    let is_commitment_valid = kzg_scheme.verify(&commitment, &proof);
+    println!("   ✅ 承诺验证结果: {}", if is_commitment_valid { "✅ 通过" } else { "❌ 失败" });
+    
+    // 4. PIOP 一致性检查
+    println!("\n📋 示例 4: PIOP 一致性检查与自定义电路");
+    let mut consistency_checker = ConsistencyChecker::<F>::new();
+    
+    // 运行 PIOP 测试
+    let piop_result = CircuitTester::run_piop_test(&custom_circuit, &mut consistency_checker);
+    println!("   � PIOP 一致性检查: {}", if piop_result { "✅ 通过" } else { "❌ 失败" });
+    
+    // 5. 范围证明电路示例
+    println!("\n📋 示例 5: 范围证明电路 (证明 x ∈ [10, 50])");
+    let range_value = F::from(25u64);
+    let range_min = F::from(10u64);
+    let range_max = F::from(50u64);
+    let range_circuit = CircuitTemplates::range_proof(range_value, range_min, range_max);
+    
+    let range_valid = CircuitTester::test_circuit(&range_circuit);
+    println!("   🔍 范围证明结果: {}", if range_valid { "✅ 通过" } else { "❌ 失败" });
+    
+    println!("\n💡 自定义电路指南:");
+    println!("   1. 在 src/custom_circuits.rs 中定义您的电路");
+    println!("   2. 使用 CustomCircuit::new() 创建新电路");
+    println!("   3. 使用 add_private_witness() 添加私有见证");
+    println!("   4. 使用 add_public_input() 添加公开输入");
+    println!("   5. 使用 add_multiplication_constraint() 添加乘法约束");
+    println!("   6. 使用 CircuitTester::test_circuit() 验证电路");
+    println!("   7. 使用 KZG 承诺保护敏感见证数据");
+    println!("   8. 使用 PIOP 进行零知识证明");
     
     Ok(())
 }
