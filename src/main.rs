@@ -13,8 +13,11 @@ mod comprehensive_tests;
 use mpc::*;
 use evaluation::*;
 use comprehensive_tests::run_comprehensive_tests;
-use ark_bls12_381::Fr;
+use piop::ConsistencyChecker;
+use circuit::KZGCommitmentScheme;
+use ark_bls12_381::{Fr, G1Projective};
 use ark_std::rand::{rngs::StdRng, SeedableRng};
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 
 type F = Fr;
 
@@ -39,6 +42,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // 4. 运行性能测试
     run_performance_tests(&mut rng)?;
+    
+    // 5. 测试 PIOP 一致性检查器
+    test_piop_consistency_checker(&mut rng)?;
+    
+    // 6. 测试 KZG 多项式承诺方案
+    test_kzg_polynomial_commitment(&mut rng)?;
 
     println!("\n✅ 系统测试完成，所有组件正常工作！");
     
@@ -169,6 +178,90 @@ fn run_performance_tests(rng: &mut StdRng) -> Result<(), Box<dyn std::error::Err
     println!("         - 内存峰值: {:.1} KB", report.memory_peak as f64 / 1024.0);
     println!("         - 通信开销: {} bytes", report.communication_overhead);
     println!("         - 电路规模: {} 约束", report.circuit_size);
+    
+    Ok(())
+}
+
+fn test_piop_consistency_checker(_rng: &mut StdRng) -> Result<(), Box<dyn std::error::Error>> {
+    println!("   🔍 PIOP 一致性检查器测试...");
+    
+    // 创建一致性检查器实例
+    let mut checker = ConsistencyChecker::<F>::new();
+    
+    // 添加测试多项式
+    let test_poly = DensePolynomial::from_coefficients_vec(vec![
+        F::from(1u64), 
+        F::from(2u64), 
+        F::from(3u64)
+    ]);
+    
+    checker.add_witness_polynomial("test_witness".to_string(), test_poly.clone());
+    checker.add_public_polynomial("test_public".to_string(), test_poly);
+    
+    // 执行一致性检查
+    let constraint_result = checker.check_constraint_consistency();
+    println!("      🔒 约束一致性检查: {}", constraint_result.is_consistent);
+    
+    let polynomial_result = checker.check_polynomial_consistency();
+    println!("      📐 多项式一致性检查: {}", polynomial_result.is_consistent);
+    
+    let batch_result = checker.batch_consistency_check();
+    println!("      � 批量一致性检查: {}", batch_result.is_consistent);
+    
+    // 生成和验证一致性证明
+    match checker.generate_consistency_proof() {
+        Ok(proof) => {
+            let verification_result = checker.verify_consistency_proof(&proof);
+            println!("      ✅ 一致性证明验证: {}", verification_result);
+        }
+        Err(e) => {
+            println!("      ⚠️ 证明生成失败: {}", e);
+        }
+    }
+    
+    Ok(())
+}
+
+fn test_kzg_polynomial_commitment(rng: &mut StdRng) -> Result<(), Box<dyn std::error::Error>> {
+    println!("   📊 KZG 多项式承诺方案测试...");
+    
+    // 创建 KZG 方案实例
+    let kzg = KZGCommitmentScheme::<F, G1Projective>::setup(10, rng);
+    
+    // 创建测试多项式 p(x) = x^2 + 2x + 3
+    let test_polynomial = DensePolynomial::from_coefficients_vec(vec![
+        F::from(3u64),  // 常数项
+        F::from(2u64),  // x 项
+        F::from(1u64),  // x^2 项
+    ]);
+    
+    // 生成承诺
+    let commitment = kzg.commit(&test_polynomial);
+    println!("      📜 多项式承诺已生成");
+    
+    // 在点 x = 5 处打开多项式
+    let evaluation_point = F::from(5u64);
+    let opening_proof = kzg.open(&test_polynomial, evaluation_point);
+    
+    // 计算期望值: 5^2 + 2*5 + 3 = 25 + 10 + 3 = 38
+    let expected_value = F::from(38u64);
+    assert_eq!(opening_proof.evaluation, expected_value);
+    println!("      � 多项式在点 {} 的值: {}", evaluation_point, opening_proof.evaluation);
+    
+    // 验证打开证明
+    let verification_result = kzg.verify(&commitment, &opening_proof);
+    println!("      ✅ 承诺验证结果: {}", verification_result);
+    
+    // 测试批量操作
+    let poly1 = DensePolynomial::from_coefficients_vec(vec![F::from(1u64), F::from(2u64)]);
+    let poly2 = DensePolynomial::from_coefficients_vec(vec![F::from(3u64), F::from(4u64)]);
+    let polynomials = vec![poly1, poly2];
+    let points = vec![F::from(1u64), F::from(2u64)];
+    
+    let batch_proof = kzg.batch_open(&polynomials, &points);
+    let batch_commitments: Vec<_> = polynomials.iter().map(|p| kzg.commit(p)).collect();
+    let batch_verification = kzg.batch_verify(&batch_commitments, &batch_proof);
+    println!("      🔄 批量验证结果: {}", batch_verification);
     
     Ok(())
 }
