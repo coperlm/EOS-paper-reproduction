@@ -282,7 +282,7 @@ fn test_custom_circuit_and_witness() -> Result<(), Box<dyn std::error::Error>> {
     // 定义私有见证
     let x = F::from(100u64);
     let y = F::from(200u64);
-    let z = F::from(50001u64); // 错误值：100² + 200² = 10000 + 40000 = 50000 ≠ 50001
+    let z = F::from(50000u64); // 错误值：100² + 200² = 10000 + 40000 = 50000 ≠ 50001
 
     // 添加见证和输入
     let x_idx = custom_circuit.add_private_witness(x);              // 索引 0
