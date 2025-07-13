@@ -31,54 +31,34 @@
 ```
 eos-delegation/
 ├── src/
-│   ├── circuit/                    # 电路基础操作
-│   │   ├── common.rs              # 通用电路函数
-│   │   ├── mod.rs                 # 模块导出
-│   │   └── pc_schemes.rs          # KZG多项式承诺方案
-│   ├── mpc/                       # 多方计算核心
+│   ├── circuit/                    # 电路基础操作模块
+│   │   ├── common.rs              # 通用电路函数实现
+│   │   ├── mod.rs                 # 电路模块导出
+│   │   └── pc_schemes.rs          # KZG多项式承诺方案实现
+│   ├── mpc/                       # 多方计算核心模块
 │   │   ├── executor.rs            # MPC电路执行器
-│   │   ├── modes.rs               # 隔离与协作模式
+│   │   ├── modes.rs               # 隔离与协作模式实现
 │   │   ├── mod.rs                 # MPC模块导出
-│   │   └── secret_sharing.rs      # 秘密共享实现
-│   ├── piop/                      # 多项式交互证明
-│   │   ├── consistency_checker.rs # PIOP一致性检查
+│   │   └── secret_sharing.rs      # Shamir/加法秘密共享实现
+│   ├── piop/                      # 多项式交互式Oracle证明模块
+│   │   ├── consistency_checker.rs # PIOP一致性检查器
 │   │   └── mod.rs                 # PIOP模块导出
-│   ├── protocol/                  # 委托协议
-│   │   ├── delegation_protocol.rs # 核心委托逻辑
+│   ├── protocol/                  # 委托协议模块
+│   │   ├── delegation_protocol.rs # 核心委托逻辑实现
 │   │   └── mod.rs                 # 协议模块导出
-│   ├── evaluation/                # 性能评估工具
-│   │   └── mod.rs                 # 评估模块
-│   ├── custom_circuits.rs         # 🔧 自定义电路系统
+│   ├── evaluation/                # 性能评估工具模块
+│   │   └── mod.rs                 # 性能监控与分析
+│   ├── custom_circuits.rs         # 🔧 自定义电路系统(核心功能)
 │   ├── comprehensive_tests.rs     # 综合测试套件
-│   ├── lib.rs                     # 库入口
-│   └── main.rs                    # 主程序入口
-├── examples/                      # 使用示例
-    ├── complete_demo.rs           # 完整功能演示
-    ├── eos_protocol_demo.rs       # EOS协议示例
-    ├── simple_usage.rs           # 简单使用示例
-    └── usage_example.rs          # 用法示例
-
+│   ├── lib.rs                     # 库入口，导出所有公共API
+│   └── main.rs                    # 主程序入口，功能演示
+├── examples/                      # 使用示例与演示
+│   ├── complete_demo.rs           # 完整功能演示
+│   ├── eos_protocol_demo.rs       # EOS协议演示
+│   ├── simple_usage.rs           # 简单使用示例
+│   └── usage_example.rs          # 详细用法示例
+└── target/                        # 编译输出目录
 ```
-
-## 🚀 特性
-
-### 🔐 **密码学基础**
-- **多方计算 (MPC)**: 分布式参与方的安全计算
-- **秘密共享方案**: Shamir门限秘密共享和加法秘密共享
-- **零知识证明**: 与SNARK证明系统集成
-- **多项式承诺**: KZG承诺方案支持
-
-### ⚡ **高性能**
-- **优化的电路执行**: 高效的MPC电路评估
-- **批处理操作**: 批量秘密共享和多项式操作
-- **并行处理**: 多线程计算支持
-- **内存高效**: 大规模计算的优化内存使用
-
-### 🛡️ **安全性与隐私**
-- **隐私保护**: 通过秘密共享保护输入隐私
-- **可验证计算**: 外包计算的密码学验证
-- **恶意安全**: 防护对抗性参与方
-- **可配置安全参数**: 可调节的安全级别 (64/128/256位)
 
 ## 📊 性能基准测试
 
@@ -88,26 +68,6 @@ eos-delegation/
 | 高级秘密共享 | 663ms | 1.2MB | 3,017 约束/秒 | 2,000个约束 |
 | 复杂MPC电路 | 5.8ms | 11MB | 868,071 约束/秒 | 5,000个约束 |
 | 大规模基准 | 866ms | 17MB | 57,710 约束/秒 | 50,000个约束 |
-
-## 🏗️ 架构
-
-```
-eos-delegation/
-├── src/
-│   ├── circuit/           # 电路操作 (FFT, MSM, 多项式操作)
-│   │   ├── common.rs      # 通用电路操作
-│   │   └── pc_schemes.rs  # 多项式承诺方案
-│   ├── mpc/               # 多方计算
-│   │   ├── secret_sharing.rs  # Shamir & 加法秘密共享
-│   │   ├── executor.rs        # MPC电路执行器
-│   │   └── modes.rs           # 隔离与协作模式
-│   ├── piop/              # 多项式交互式Oracle证明
-│   │   └── consistency_checker.rs
-│   ├── protocol/          # 核心委托协议
-│   │   └── delegation_protocol.rs
-│   └── evaluation/        # 性能评估工具
-└── examples/              # 使用示例和演示
-```
 
 ## 🚀 快速开始
 
@@ -171,7 +131,7 @@ cargo run --example eos_protocol_demo
 cargo test
 ```
 
-## � 自定义电路开发指南
+## 🔧 自定义电路开发指南
 
 ### 核心概念
 
@@ -747,33 +707,6 @@ cargo fmt
 cargo test
 ```
 
-### 项目结构说明
-
-```
-src/
-├── lib.rs                     # 库入口，导出所有公共API
-├── main.rs                    # 主程序，包含完整的功能演示
-├── custom_circuits.rs         # 🔧 自定义电路系统（核心功能）
-├── comprehensive_tests.rs     # 综合测试套件
-├── circuit/                   # 电路基础操作模块
-│   ├── mod.rs                # 模块导出
-│   ├── common.rs             # 通用电路函数
-│   └── pc_schemes.rs         # KZG多项式承诺实现
-├── mpc/                      # 多方计算核心模块
-│   ├── mod.rs                # MPC模块导出
-│   ├── secret_sharing.rs     # Shamir和加法秘密分享
-│   ├── executor.rs           # MPC电路执行器
-│   └── modes.rs              # 操作模式（隔离/协作）
-├── piop/                     # PIOP模块
-│   ├── mod.rs                # PIOP模块导出
-│   └── consistency_checker.rs # 一致性检查器
-├── protocol/                 # 委托协议模块
-│   ├── mod.rs                # 协议模块导出
-│   └── delegation_protocol.rs # 核心委托逻辑
-└── evaluation/               # 性能评估工具
-    └── mod.rs                # 评估模块
-```
-
 ### 添加新功能
 
 #### 1. 扩展自定义电路
@@ -849,12 +782,12 @@ cargo run --release
 valgrind cargo run
 ```
 
-## � 文档与资源
+## 📚 文档与资源
 
 ### 项目文档
 
 - **API文档**: 运行 `cargo doc --open` 生成完整的API文档
-- **自定义电路指南**: [`自定义电路指南.md`](./自定义电路指南.md) - 详细的电路开发教程
+- **电路开发指南**: 本README中的"🔧 自定义电路开发指南"章节
 - **示例代码**: `examples/` 目录包含多个完整的使用示例
 - **源码注释**: 代码中包含详细的功能说明和使用示例
 
@@ -863,7 +796,7 @@ valgrind cargo run
 #### 快速入门路径
 1. **阅读README**: 了解项目概况和基本用法
 2. **运行示例**: `cargo run` 体验基础功能
-3. **学习电路**: 阅读自定义电路指南
+3. **学习电路**: 查看本README中的自定义电路开发指南
 4. **查看源码**: 从 `src/main.rs` 开始了解实现
 5. **尝试修改**: 基于示例创建自己的电路
 
