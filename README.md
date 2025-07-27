@@ -1,3 +1,5 @@
+# [UPD250727] 突然发现已经作者已经开源源码，白写了（悲 
+
 # EOS 委托协议
 
 [![Rust](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
